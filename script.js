@@ -4,7 +4,7 @@
    FastAPI backend, result rendering, error handling, reset.
 ========================================================= */
 
-const API_URL = "http://127.0.0.1:8000/predict";
+const API_URL = "https://mental-health-score-5bo6.onrender.com/predict";
 
 /* ---------------------------------------------------------
    Mobile navigation toggle
