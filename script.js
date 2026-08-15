@@ -267,7 +267,7 @@ form.addEventListener("submit", async (event) => {
       return;
     }
 
-    showResult(score);
+    showResult(score, payload);
   } catch (err) {
     showError(
       "Unable to connect to the prediction server.",
@@ -307,7 +307,84 @@ function setLoading(isLoading) {
 /* ---------------------------------------------------------
    Result rendering
 --------------------------------------------------------- */
-function showResult(score) {
+const scoreBandEl = document.getElementById("scoreBand");
+const insightGrid = document.getElementById("insightGrid");
+const tipSection = document.getElementById("tipSection");
+const tipList = document.getElementById("tipList");
+
+/**
+ * Score bands. Each entry describes the score range, a short label,
+ * a "tone" used for styling, and a plain-language interpretation.
+ */
+const SCORE_BANDS = [
+  { min: 8, tone: "good", label: "Thriving", desc: "Your inputs line up with a strong, well-balanced routine. Whatever you're doing, it's working." },
+  { min: 6, tone: "good", label: "Doing well", desc: "Things look mostly steady. A few small adjustments below could nudge this even higher." },
+  { min: 4, tone: "watch", label: "Some strain", desc: "A mix of habits may be pulling your score down. The factors below point to where to start." },
+  { min: 2, tone: "concern", label: "Needs attention", desc: "Several factors suggest your routine may be taking a real toll right now." },
+  { min: 0, tone: "concern", label: "High concern", desc: "This score reflects a pattern that's worth taking seriously — see the note below." },
+];
+
+function getScoreBand(score) {
+  return SCORE_BANDS.find((b) => score >= b.min) || SCORE_BANDS[SCORE_BANDS.length - 1];
+}
+
+const CHECK_ICON = '<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2.5 6.8l2.6 2.6 5.4-5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const WARN_ICON = '<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.2 12 11.5H1L6.5 1.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6.5 5v3M6.5 9.6v.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+const BULB_ICON = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1a4 4 0 0 0-2.2 7.3c.4.3.6.7.6 1.2v.5h3.2v-.5c0-.5.2-.9.6-1.2A4 4 0 0 0 7 1z" stroke="currentColor" stroke-width="1.2"/><path d="M5.4 12h3.2M6 13h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
+/**
+ * Evaluates each lifestyle factor against a rough healthy range and
+ * returns { title, text, status, tip } for factors worth surfacing.
+ * These thresholds are general wellness guidelines, not clinical cutoffs.
+ */
+function buildInsights(data) {
+  const insights = [];
+
+  const sleep = data.Sleep_Hours_Per_Night;
+  if (sleep < 6) {
+    insights.push({ title: "Sleep", status: "concern", text: `${sleep}h a night is under the recommended range — sleep debt compounds fast.`, tip: "Aim for 7–9 hours a night; even an extra 30–45 minutes can help." });
+  } else if (sleep > 9.5) {
+    insights.push({ title: "Sleep", status: "watch", text: `${sleep}h is on the high side, which can sometimes signal low energy or avoidance.` });
+  } else {
+    insights.push({ title: "Sleep", status: "good", text: `${sleep}h a night is within a healthy range.` });
+  }
+
+  const usage = data.Avg_Daily_Usage_Hours;
+  if (usage > 6) {
+    insights.push({ title: "Screen time", status: "concern", text: `${usage}h of daily social media use is high and linked to lower mood scores.`, tip: "Try setting app timers, or a screen-free hour before bed." });
+  } else if (usage > 3.5) {
+    insights.push({ title: "Screen time", status: "watch", text: `${usage}h a day is moderate-to-high — worth keeping an eye on.` });
+  } else {
+    insights.push({ title: "Screen time", status: "good", text: `${usage}h a day is a light, manageable amount of usage.` });
+  }
+
+  const activity = data.Physical_Activity_Hours;
+  if (activity < 0.5) {
+    insights.push({ title: "Physical activity", status: "concern", text: `${activity}h a day is quite low — movement is one of the strongest levers for mood.`, tip: "Even a 15–20 minute walk most days can measurably help." });
+  } else if (activity < 1) {
+    insights.push({ title: "Physical activity", status: "watch", text: `${activity}h a day is okay, but a bit more could help.` });
+  } else {
+    insights.push({ title: "Physical activity", status: "good", text: `${activity}h a day is a solid amount of movement.` });
+  }
+
+  const stress = data.Stress_Level;
+  if (stress === "Very High" || stress === "High") {
+    insights.push({ title: "Stress level", status: "concern", text: `You reported "${stress}" stress, which weighs heavily on the score.`, tip: "Short breathing breaks or talking to someone you trust can take the edge off in the moment." });
+  } else if (stress === "Medium") {
+    insights.push({ title: "Stress level", status: "watch", text: `"${stress}" stress is manageable but worth monitoring.` });
+  } else {
+    insights.push({ title: "Stress level", status: "good", text: `"${stress}" stress is a good place to be.` });
+  }
+
+  const study = data.Study_Hours;
+  if (study > 8) {
+    insights.push({ title: "Study load", status: "watch", text: `${study}h a day is a heavy academic load — burnout risk climbs from here.`, tip: "Build in real breaks between study blocks, not just screen switches." });
+  }
+
+  return insights;
+}
+
+function showResult(score, payload) {
   hideError();
 
   const clamped = Math.max(0, Math.min(10, score));
@@ -327,6 +404,36 @@ function showResult(score) {
 
   // Trigger a soft glow pulse once the ring finishes drawing.
   window.setTimeout(() => gaugeWrap.classList.add("is-complete"), 950);
+
+  // Band badge + interpretation.
+  const band = getScoreBand(clamped);
+  scoreBandEl.textContent = band.label;
+  scoreBandEl.dataset.tone = band.tone === "good" ? "" : band.tone;
+  document.getElementById("resultDesc").textContent = band.desc;
+
+  // Factor insights.
+  const insights = payload ? buildInsights(payload) : [];
+  insightGrid.innerHTML = insights
+    .map(
+      (i) => `
+      <div class="insight-card" data-status="${i.status}">
+        <span class="insight-icon">${i.status === "good" ? CHECK_ICON : WARN_ICON}</span>
+        <div>
+          <p class="insight-title">${i.title}</p>
+          <p class="insight-text">${i.text}</p>
+        </div>
+      </div>`
+    )
+    .join("");
+
+  // Tips, drawn from any flagged factors.
+  const tips = insights.filter((i) => i.tip).map((i) => i.tip);
+  if (tips.length) {
+    tipList.innerHTML = tips.map((t) => `<li>${BULB_ICON}<span>${t}</span></li>`).join("");
+    tipSection.hidden = false;
+  } else {
+    tipSection.hidden = true;
+  }
 
   resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
