@@ -5,6 +5,8 @@ MindGauge estimates a student's mental health score (0–10) from their digital 
 **Live demo:** https://mental-health-score-2-11b2.onrender.com
 **API:** https://mental-health-score-5bo6.onrender.com
 
+> **Note:** Both the frontend and backend are hosted on Render's free tier, which spins down after periods of inactivity. If nobody has used the app recently, the **first assessment can take up to ~50 seconds** while the backend cold-starts — it's not stuck, it just needs a moment to wake up. Subsequent requests are fast.
+
 > Built as an educational / portfolio project. Predictions are not a medical diagnosis.
 
 ---
