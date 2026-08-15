@@ -40,8 +40,13 @@ class PredictionResponse(BaseModel):
     predicted_mental_health_score : float
 
 @app.get('/')
-def greet():
-    return {'Hi Checking '}
+def root():
+    return {
+        "service": "MindGauge API",
+        "status": "ok",
+        "docs": "/docs",
+        "predict_endpoint": "/predict (POST)"
+    }
 
 
 @app.post('/predict',response_model=PredictionResponse)
